@@ -1,3 +1,4 @@
+from collections import Hashable
 import logging
 import os
 from copy import deepcopy
@@ -26,7 +27,7 @@ ATTRIBUTES_NO_EVAL = ["template_body", "template"]
 class VariableRenderer:
     def __init__(self, local_graph: "TerraformLocalGraph") -> None:
         self.local_graph = local_graph
-        run_async = os.environ.get("RENDER_VARIABLES_ASYNC", "True")
+        run_async = os.environ.get("RENDER_VARIABLES_ASYNC", "False")
         self.run_async = True if run_async == "True" else False
         self.max_workers = int(os.environ.get("RENDER_ASYNC_MAX_WORKERS", 50))
         self.done_edges_by_origin_vertex: Dict[int, List[Edge]] = {}
@@ -86,6 +87,7 @@ class VariableRenderer:
         self.local_graph.update_vertices_configs()
         logging.info("done evaluating edges")
         self.evaluate_non_rendered_values()
+        logging.info("done evaluate_non_rendered_values")
 
     def _edge_evaluation_task(self, edges: List[List[Edge]]) -> List[Edge]:
         inner_edges = edges[0]
@@ -342,7 +344,11 @@ class VariableRenderer:
         elif isinstance(val, set):
             evaluated_val = set()
             for v in val:
-                evaluated_val.add(self.evaluate_value(v))
+                evaluated_v = self.evaluate_value(v)
+                if isinstance(evaluated_v, Hashable):
+                    evaluated_val.add(evaluated_v)
+                else:
+                    evaluated_val.add(str(evaluated_v))
         else:
             evaluated_val = {}
             for k, v in val.items():
